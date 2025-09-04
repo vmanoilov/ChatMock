@@ -136,6 +136,10 @@ The context size of this route is also larger than what you get access to in the
 - Explore to see if we can make more model settings accessible
 - Implement analytics (token counting, etc, to track usage)
 
+# Changelog
+
+- [main] [vladislav manoilov] Add rate limiting and concurrency control, update README
+
 ## Star History
 
 [![Star History Chart](https://api.star-history.com/svg?repos=RayBytes/ChatMock&type=Timeline)](https://www.star-history.com/#RayBytes/ChatMock&Timeline)
