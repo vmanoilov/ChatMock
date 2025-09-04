@@ -139,6 +139,10 @@ The context size of this route is also larger than what you get access to in the
 # Changelog
 
 - [main] [vladislav manoilov] Add rate limiting and concurrency control, update README
+  - Added `chatmock/rate_limit.py`: Implements a fair concurrency gate to limit simultaneous upstream requests, with configurable queue limits and timeouts to prevent server overload.
+  - Updated `chatmock/routes_openai.py`: Integrated rate limiting with permit acquisition/release, added automatic retry with exponential backoff for upstream 429 errors to handle rate limits gracefully.
+  - Updated README.md: Added documentation for new rate limiting environment variables and behavior.
+  - Reasoning: Improves stability and reliability by managing concurrent requests and handling upstream rate limits, preventing crashes and improving user experience under load.
 
 ## Star History
 
