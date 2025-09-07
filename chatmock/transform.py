@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from typing import Any, Dict, List
+from tqdm import tqdm
 
 
 def to_data_url(image_str: str) -> str:
@@ -29,7 +30,6 @@ def convert_ollama_messages(
     out: List[Dict[str, Any]] = []
     msgs = messages if isinstance(messages, list) else []
     pending_call_ids: List[str] = []
-    from tqdm import tqdm
     call_counter = 0
     for m in tqdm(msgs, desc="Processing messages", unit="msg"):
         if not isinstance(m, dict):
