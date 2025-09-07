@@ -109,8 +109,9 @@ def convert_chat_messages_to_responses_input(messages: List[Dict[str, Any]]) -> 
         except Exception:
             return url
 
+    from tqdm import tqdm
     input_items: List[Dict[str, Any]] = []
-    for message in messages:
+    for message in tqdm(messages, desc="Processing messages", unit="msg"):
         role = message.get("role")
         if role == "system":
             continue

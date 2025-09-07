@@ -50,6 +50,8 @@ def cmd_serve(
     host: str,
     port: int,
     verbose: bool,
+    provider: str,
+    model: str | None,
     reasoning_effort: str,
     reasoning_summary: str,
     reasoning_compat: str,
@@ -58,6 +60,8 @@ def cmd_serve(
 ) -> int:
     app = create_app(
         verbose=verbose,
+        provider=provider,
+        model=model,
         reasoning_effort=reasoning_effort,
         reasoning_summary=reasoning_summary,
         reasoning_compat=reasoning_compat,
@@ -70,7 +74,7 @@ def cmd_serve(
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="ChatGPT Local: login & OpenAI-compatible proxy")
+    parser = argparse.ArgumentParser(description="ChatMock: Multi-provider OpenAI-compatible proxy")
     sub = parser.add_subparsers(dest="command", required=True)
 
     p_login = sub.add_parser("login", help="Authorize with ChatGPT and store tokens")
@@ -81,6 +85,17 @@ def main() -> None:
     p_serve.add_argument("--host", default="127.0.0.1")
     p_serve.add_argument("--port", type=int, default=8000)
     p_serve.add_argument("--verbose", action="store_true", help="Enable verbose logging")
+    p_serve.add_argument(
+        "--provider",
+        choices=["chatgpt", "grok", "openrouter"],
+        default=os.getenv("CHATMOCK_PROVIDER", "chatgpt"),
+        help="Select LLM provider (default: chatgpt)",
+    )
+    p_serve.add_argument(
+        "--model",
+        default=os.getenv("CHATMOCK_MODEL"),
+        help="Default model to use if not specified in requests",
+    )
     p_serve.add_argument(
         "--debug-model",
         dest="debug_model",
@@ -131,6 +146,8 @@ def main() -> None:
                 host=args.host,
                 port=args.port,
                 verbose=args.verbose,
+                provider=args.provider,
+                model=args.model,
                 reasoning_effort=args.reasoning_effort,
                 reasoning_summary=args.reasoning_summary,
                 reasoning_compat=args.reasoning_compat,
@@ -176,4 +193,7 @@ def main() -> None:
 
 
 if __name__ == "__main__":
+    import logging
+    if "--verbose" in sys.argv:
+        logging.basicConfig(level=logging.INFO)
     main()

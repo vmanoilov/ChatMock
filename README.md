@@ -1,14 +1,19 @@
 <div align="center">
   <h1>ChatMock</h1>
-  <p><b>OpenAI & Ollama compatible API powered by your ChatGPT plan.</b></p>
-  <p>Use your ChatGPT Plus/Pro account to call OpenAI models from code or alternate chat UIs.</p>
+  <p><b>Multi-provider OpenAI & Ollama compatible API.</b></p>
+  <p>Supports ChatGPT, Grok (xAI), and OpenRouter (Sonoma models) with OpenAI-compatible endpoints.</p>
   <br>
 </div>
 
 ## What It Does
 
-ChatMock runs a local server that creates an OpenAI/Ollama compatible API, and requests are then fulfilled using your authenticated ChatGPT login with the oauth client of Codex, OpenAI's coding CLI tool. This allows you to use GPT-5 and other models right through your OpenAI account, without requiring an api key.
-This does require a paid ChatGPT account.
+ChatMock runs a local server providing OpenAI-compatible API endpoints (/v1/chat/completions, /v1/completions, /v1/models) and Ollama compatibility. It supports multiple LLM providers:
+
+- **ChatGPT**: Uses your authenticated ChatGPT Plus/Pro account (no API key needed, requires login)
+- **Grok**: xAI Grok API integration (requires XAI_API_KEY environment variable)
+- **OpenRouter**: Sonoma Sky/Dusk models via OpenRouter (requires OPENROUTER_API_KEY, supports 1M token context with truncation)
+
+Provider selection via CLI `--provider` flag or request query parameter. All providers support streaming and tool calling where applicable.
 
 ## Quickstart
 
@@ -47,11 +52,13 @@ You can make sure this worked by running `python chatmock.py info`
 2. After the login completes successfully, you can just simply start the local server
 
 ```bash
-python chatmock.py serve
+python chatmock.py serve --provider chatgpt
 ```
-Then, you can simply use the address and port as the baseURL as you require (http://127.0.0.1:8000 by default)
+Use `--provider grok` or `--provider openrouter` for other providers. Add `--model gpt-5` (or grok-beta, sonoma/sky) to set default model.
 
-**Reminder:** When setting a baseURL, make you sure you include /v1/ at the end of the URL if you're using this as a OpenAI compatible endpoint (e.g http://127.0.0.1:8000/v1)
+The server runs at http://127.0.0.1:8000 by default.
+
+**Reminder:** For OpenAI-compatible endpoints, use /v1/ (e.g., http://127.0.0.1:8000/v1/chat/completions). Specify `?provider=grok` in requests to override default provider.
 
 # Examples
 
@@ -98,11 +105,41 @@ curl http://127.0.0.1:8000/v1/chat/completions \
 - Some context length might be taken up by internal instructions (but they dont seem to degrade the model) 
 - Use responsibly and at your own risk. This project is not affiliated with OpenAI, and is a educational exercise.
 
-# Supported models
-- `gpt-5`
-- `codex-mini`
+## Supported Models
 
-# Customisation / Configuration
+- **ChatGPT**: gpt-5 (with reasoning variants: gpt-5-high, gpt-5-medium, gpt-5-low, gpt-5-minimal if --expose-reasoning-models)
+- **Grok**: grok-beta (Code Fast 1)
+- **OpenRouter**: sonoma/sky, sonoma/dusk (1M token context)
+
+View available models: GET /v1/models
+
+## Configuration
+
+### Environment Variables
+
+- `XAI_API_KEY`: For Grok provider
+- `OPENROUTER_API_KEY`: For OpenRouter Sonoma provider
+- `CHATMOCK_PROVIDER`: Default provider (chatgpt|grok|openrouter)
+- `CHATMOCK_MODEL`: Default model if not specified in requests
+
+### CLI Options
+
+- `--provider {chatgpt|grok|openrouter}`: Select default provider
+- `--model {model_name}`: Set default model
+- `--reasoning-effort {minimal|low|medium|high}`: ChatGPT reasoning level
+- `--reasoning-summary {auto|concise|detailed|none}`: Summary verbosity
+- `--expose-reasoning-models`: List reasoning variants in /v1/models
+
+## Testing Providers
+
+Run individual provider tests (requires credentials):
+
+```bash
+cd chatmock/tests
+python test_chatgpt.py  # After login
+python test_grok.py     # Set XAI_API_KEY
+python test_openrouter.py  # Set OPENROUTER_API_KEY
+```
 
 ### Thinking effort
 
@@ -131,10 +168,22 @@ The context size of this route is also larger than what you get access to in the
 
 **When the model returns a thinking summary, the model will send back thinking tags to make it compatible with chat apps. If you don't like this behavior, you can instead set `--reasoning-compat` to legacy, and reasoning will be set in the reasoning tag instead of being returned in the actual response text.**
 
-# TODO
-- ~~Implement Ollama support~~ ✅
-- Explore to see if we can make more model settings accessible
-- Implement analytics (token counting, etc, to track usage)
+## Testing
+
+Sample tests in `chatmock/tests/` verify each provider works independently.
+
+# Changelog
+
+- [v1.3] [Sonoma] Multi-provider support (ChatGPT, Grok, OpenRouter Sonoma)
+  - Added `providers.py`: Abstract Provider base class with ChatGPTProvider (wraps existing logic), GrokProvider (xAI API), OpenRouterProvider (Sonoma models with truncation)
+  - Added `routes_providers.py`: Dynamic provider selection for OpenAI endpoints
+  - Updated `cli.py`: --provider and --model flags
+  - Updated `app.py`: Register providers_bp, store config
+  - Added `tests/`: test_chatgpt.py, test_grok.py, test_openrouter.py
+  - Enhanced logging for exceptions throughout providers
+  - Updated README: Document new providers, config, tests
+
+Previous changes...
 
 # Changelog
 

@@ -29,8 +29,9 @@ def convert_ollama_messages(
     out: List[Dict[str, Any]] = []
     msgs = messages if isinstance(messages, list) else []
     pending_call_ids: List[str] = []
+    from tqdm import tqdm
     call_counter = 0
-    for m in msgs:
+    for m in tqdm(msgs, desc="Processing messages", unit="msg"):
         if not isinstance(m, dict):
             continue
         role = m.get("role") or "user"

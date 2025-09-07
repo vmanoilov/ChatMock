@@ -4,12 +4,14 @@ from flask import Flask, jsonify
 
 from .config import BASE_INSTRUCTIONS
 from .http import build_cors_headers
-from .routes_openai import openai_bp
 from .routes_ollama import ollama_bp
+from .routes_providers import providers_bp
 
 
 def create_app(
     verbose: bool = False,
+    provider: str = "chatgpt",
+    model: str | None = None,
     reasoning_effort: str = "medium",
     reasoning_summary: str = "auto",
     reasoning_compat: str = "think-tags",
@@ -20,6 +22,8 @@ def create_app(
 
     app.config.update(
         VERBOSE=bool(verbose),
+        PROVIDER=provider,
+        MODEL=model,
         REASONING_EFFORT=reasoning_effort,
         REASONING_SUMMARY=reasoning_summary,
         REASONING_COMPAT=reasoning_compat,
@@ -39,7 +43,7 @@ def create_app(
             resp.headers.setdefault(k, v)
         return resp
 
-    app.register_blueprint(openai_bp)
+    app.register_blueprint(providers_bp)
     app.register_blueprint(ollama_bp)
 
     return app
