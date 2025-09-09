@@ -4,8 +4,10 @@ import base64
 import hashlib
 import json
 import os
+import random
 import secrets
 import sys
+import time as _time
 from typing import Any, Dict, List
 
 
@@ -489,6 +491,35 @@ def sse_translate_chat(
                 break
     finally:
         upstream.close()
+
+
+def retry_upstream_call(make_request, *, max_retries: int = 6):
+    delay = 0.5
+    upstream = None
+    error_resp = None
+    for attempt in range(max_retries):
+        upstream, error_resp = make_request()
+        if error_resp is not None:
+            return upstream, error_resp
+        if upstream is None:
+            # Defensive, pass through
+            return upstream, error_resp
+        if upstream.status_code != 429:
+            return upstream, None
+        # 429 handling
+        ra = upstream.headers.get("retry-after")
+        if ra:
+            try:
+                sleep_for = float(ra)
+            except Exception:
+                sleep_for = 2.0
+        else:
+            sleep_for = min(15.0, delay)
+            delay *= 2
+        sleep_for += random.uniform(0.1, 0.4)
+        _time.sleep(sleep_for)
+    # Return last 429
+    return upstream, None
 
 
 def sse_translate_text(upstream, model: str, created: int, verbose: bool = False, vlog=None, *, include_usage: bool = False):

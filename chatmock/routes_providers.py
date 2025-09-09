@@ -17,6 +17,7 @@ from .upstream import normalize_model_name
 from .utils import (
     convert_chat_messages_to_responses_input,
     convert_tools_chat_to_responses,
+    retry_upstream_call,
     sse_translate_chat,
     sse_translate_text,
 )
@@ -104,16 +105,18 @@ def chat_completions():
             resp.headers["Retry-After"] = str(gb.retry_after_seconds)
             return resp
 
-        upstream, error_resp = provider.send_message(
-            model=normalize_model_name(model, debug_model),
-            messages=messages,
-            stream=is_stream,
-            instructions=BASE_INSTRUCTIONS,
-            tools=tools_responses,
-            tool_choice=tool_choice,
-            parallel_tool_calls=parallel_tool_calls,
-            reasoning_param=reasoning_param,
-        )
+        def _make_req():
+            return provider.send_message(
+                model=normalize_model_name(model, debug_model),
+                messages=messages,
+                stream=is_stream,
+                instructions=BASE_INSTRUCTIONS,
+                tools=tools_responses,
+                tool_choice=tool_choice,
+                parallel_tool_calls=parallel_tool_calls,
+                reasoning_param=reasoning_param,
+            )
+        upstream, error_resp = retry_upstream_call(_make_req)
         if error_resp:
             permit.release()
             return error_resp
@@ -205,12 +208,14 @@ def chat_completions():
             resp.headers["Retry-After"] = str(gb.retry_after_seconds)
             return resp
 
-        upstream, error_resp = provider.send_message(
-            model=model,
-            messages=messages,
-            stream=is_stream,
-            temperature=payload.get("temperature", 0.7),
-        )
+        def _make_req():
+            return provider.send_message(
+                model=model,
+                messages=messages,
+                stream=is_stream,
+                temperature=payload.get("temperature", 0.7),
+            )
+        upstream, error_resp = retry_upstream_call(_make_req)
         if error_resp:
             permit.release()
             return error_resp
@@ -321,23 +326,27 @@ def completions():
         input_items = convert_chat_messages_to_responses_input(messages)
         reasoning_param = build_reasoning_param(current_app.config.get("REASONING_EFFORT", "medium"), current_app.config.get("REASONING_SUMMARY", "auto"))
 
-        upstream, error_resp = provider.send_message(
-            model=normalize_model_name(model, debug_model),
-            messages=messages,
-            stream=stream_req,
-            instructions=BASE_INSTRUCTIONS,
-            reasoning_param=reasoning_param,
-        )
+        def _make_req():
+            return provider.send_message(
+                model=normalize_model_name(model, debug_model),
+                messages=messages,
+                stream=stream_req,
+                instructions=BASE_INSTRUCTIONS,
+                reasoning_param=reasoning_param,
+            )
+        upstream, error_resp = retry_upstream_call(_make_req)
         if error_resp:
             permit.release()
             return error_resp
     else:
-        upstream, error_resp = provider.send_message(
-            model=model,
-            messages=messages,
-            stream=stream_req,
-            temperature=payload.get("temperature", 0.7),
-        )
+        def _make_req():
+            return provider.send_message(
+                model=model,
+                messages=messages,
+                stream=stream_req,
+                temperature=payload.get("temperature", 0.7),
+            )
+        upstream, error_resp = retry_upstream_call(_make_req)
         if error_resp:
             permit.release()
             return error_resp
