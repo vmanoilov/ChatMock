@@ -20,10 +20,26 @@
         "GITHUB_READ_ONLY": ""
       },
       "alwaysAllow": [
-        "add_comment_to_pending_review",
-        "add_issue_comment",
-        "add_sub_issue",
-        "assign_copilot_to_issue"
+        "get_repository",
+        "list_releases",
+        "get_file_contents"
+      ]
+    },
+    "context7": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@upstash/context7-mcp"
+      ],
+      "env": {
+        "DEFAULT_MINIMUM_TOKENS": ""
+      }
+    },
+    "sequentialthinking": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-sequential-thinking"
       ]
     }
   }
