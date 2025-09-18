@@ -12,6 +12,7 @@ import requests
 from requests import Response
 
 from .config import CHATGPT_RESPONSES_URL
+from .providers.qwen import QwenProvider
 from .session import ensure_session_id
 from .upstream import normalize_model_name
 from .utils import get_effective_chatgpt_auth, convert_chat_messages_to_responses_input
@@ -289,4 +290,5 @@ PROVIDERS = {
     "chatgpt": ChatGPTProvider(),
     "grok": GrokProvider(),
     "openrouter": OpenRouterProvider(),
+    "qwen": QwenProvider(),
 }

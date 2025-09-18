@@ -1,7 +1,7 @@
 <div align="center">
   <h1>ChatMock</h1>
   <p><b>Multi-provider OpenAI & Ollama compatible API.</b></p>
-  <p>Supports ChatGPT, Grok (xAI), and OpenRouter (Sonoma models) with OpenAI-compatible endpoints.</p>
+  <p>Supports ChatGPT, Grok (xAI), OpenRouter (Sonoma models), and Qwen with OpenAI-compatible endpoints.</p>
   <br>
 </div>
 
@@ -12,6 +12,7 @@ ChatMock runs a local server providing OpenAI-compatible API endpoints (/v1/chat
 - **ChatGPT**: Uses your authenticated ChatGPT Plus/Pro account (no API key needed, requires login)
 - **Grok**: xAI Grok API integration (requires XAI_API_KEY environment variable)
 - **OpenRouter**: Sonoma Sky/Dusk models via OpenRouter (requires OPENROUTER_API_KEY, supports 1M token context with truncation)
+- **Qwen**: Qwen API integration (requires QWEN_AUTH_TOKEN and QWEN_COOKIES environment variables)
 
 Provider selection via CLI `--provider` flag or request query parameter. All providers support streaming and tool calling where applicable.
 
@@ -54,11 +55,11 @@ You can make sure this worked by running `python chatmock.py info`
 ```bash
 python chatmock.py serve --provider chatgpt
 ```
-Use `--provider grok` or `--provider openrouter` for other providers. Add `--model gpt-5` (or grok-beta, sonoma/sky) to set default model.
+Use `--provider grok`, `--provider openrouter`, or `--provider qwen` for other providers. Add `--model gpt-5` (or grok-beta, sonoma/sky, qwen) to set default model.
 
 The server runs at http://127.0.0.1:8000 by default.
 
-**Reminder:** For OpenAI-compatible endpoints, use /v1/ (e.g., http://127.0.0.1:8000/v1/chat/completions). Specify `?provider=grok` in requests to override default provider.
+**Reminder:** For OpenAI-compatible endpoints, use /v1/ (e.g., http://127.0.0.1:8000/v1/chat/completions). Specify `?provider=grok` or `?provider=qwen` in requests to override default provider.
 
 # Examples
 
@@ -83,11 +84,21 @@ print(resp.choices[0].message.content)
 ### curl
 
 ```bash
+# ChatGPT
 curl http://127.0.0.1:8000/v1/chat/completions \
   -H "Authorization: Bearer key" \
   -H "Content-Type: application/json" \
   -d '{
     "model": "gpt-5",
+    "messages": [{"role":"user","content":"hello world"}]
+  }'
+
+# Qwen
+curl "http://127.0.0.1:8000/v1/chat/completions?provider=qwen&chat_id=25e701db-821b-4299-b6b7-8306cbe40eb4" \
+  -H "Authorization: Bearer key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "qwen",
     "messages": [{"role":"user","content":"hello world"}]
   }'
 ```
@@ -110,6 +121,7 @@ curl http://127.0.0.1:8000/v1/chat/completions \
 - **ChatGPT**: gpt-5 (with reasoning variants: gpt-5-high, gpt-5-medium, gpt-5-low, gpt-5-minimal if --expose-reasoning-models)
 - **Grok**: grok-beta (Code Fast 1)
 - **OpenRouter**: sonoma/sky, sonoma/dusk (1M token context)
+- **Qwen**: qwen
 
 View available models: GET /v1/models
 
@@ -119,12 +131,15 @@ View available models: GET /v1/models
 
 - `XAI_API_KEY`: For Grok provider
 - `OPENROUTER_API_KEY`: For OpenRouter Sonoma provider
-- `CHATMOCK_PROVIDER`: Default provider (chatgpt|grok|openrouter)
+- `QWEN_AUTH_TOKEN`: For Qwen provider (Bearer token)
+- `QWEN_COOKIES`: For Qwen provider (full cookie string)
+- `QWEN_CHAT_ID`: Optional for Qwen provider (defaults to demo ID)
+- `CHATMOCK_PROVIDER`: Default provider (chatgpt|grok|openrouter|qwen)
 - `CHATMOCK_MODEL`: Default model if not specified in requests
 
 ### CLI Options
 
-- `--provider {chatgpt|grok|openrouter}`: Select default provider
+- `--provider {chatgpt|grok|openrouter|qwen}`: Select default provider
 - `--model {model_name}`: Set default model
 - `--reasoning-effort {minimal|low|medium|high}`: ChatGPT reasoning level
 - `--reasoning-summary {auto|concise|detailed|none}`: Summary verbosity
@@ -139,6 +154,7 @@ cd chatmock/tests
 python test_chatgpt.py  # After login
 python test_grok.py     # Set XAI_API_KEY
 python test_openrouter.py  # Set OPENROUTER_API_KEY
+python test_qwen.py     # Set QWEN_AUTH_TOKEN and QWEN_COOKIES
 ```
 
 ### Thinking effort
@@ -173,6 +189,12 @@ The context size of this route is also larger than what you get access to in the
 Sample tests in `chatmock/tests/` verify each provider works independently.
 
 # Changelog
+
+- [v1.4] [Qwen] Added Qwen provider support
+  - Added `chatmock/providers/qwen.py`: QwenProvider class with API integration, headers, auth, and streaming conversion
+  - Updated `chatmock/providers.py`: Added Qwen to PROVIDERS dict
+  - Updated `chatmock/routes_providers.py`: Added Qwen-specific handling for streaming and models
+  - Updated README: Documented Qwen provider, env vars, curl examples, and tests
 
 - [v1.3] [Sonoma] Multi-provider support (ChatGPT, Grok, OpenRouter Sonoma)
   - Added `providers.py`: Abstract Provider base class with ChatGPTProvider (wraps existing logic), GrokProvider (xAI API), OpenRouterProvider (Sonoma models with truncation)

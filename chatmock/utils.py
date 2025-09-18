@@ -493,6 +493,22 @@ def sse_translate_chat(
         upstream.close()
 
 
+def sanitize_log_message(message: str) -> str:
+    """
+    Sanitize log messages to redact sensitive information like tokens and cookies.
+    """
+    import re
+    # Redact authorization headers
+    message = re.sub(r'("authorization":\s*"[^"]*")', '"authorization": "[REDACTED]"', message, flags=re.IGNORECASE)
+    # Redact cookie headers
+    message = re.sub(r'("cookie":\s*"[^"]*")', '"cookie": "[REDACTED]"', message, flags=re.IGNORECASE)
+    # Redact token fields
+    message = re.sub(r'("token":\s*"[^"]*")', '"token": "[REDACTED]"', message, flags=re.IGNORECASE)
+    # Redact Bearer tokens in text
+    message = re.sub(r'\bBearer\s+[^\s"]+', 'Bearer [REDACTED]', message, flags=re.IGNORECASE)
+    return message
+
+
 def retry_upstream_call(make_request, *, max_retries: int = 6):
     delay = 0.5
     upstream = None

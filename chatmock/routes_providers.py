@@ -11,6 +11,7 @@ from requests import Response as RequestsResponse
 from .config import BASE_INSTRUCTIONS
 from .http import build_cors_headers
 from .providers import PROVIDERS
+from .providers.qwen import parse_qwen_stream
 from .rate_limit import gate, GateBusy, queue_timeout_seconds
 from .reasoning import apply_reasoning_to_message, build_reasoning_param, extract_reasoning_from_model_name
 from .upstream import normalize_model_name
@@ -198,6 +199,90 @@ def chat_completions():
         for k, v in build_cors_headers().items():
             resp.headers.setdefault(k, v)
         return resp
+
+    elif provider_name == "qwen":
+        # Qwen specific handling
+        chat_id = request.args.get('chat_id') or os.getenv('QWEN_CHAT_ID') or "25e701db-821b-4299-b6b7-8306cbe40eb4"
+        # Validate chat_id as UUID
+        try:
+            import uuid
+            uuid.UUID(chat_id)
+        except ValueError:
+            return handle_error("Invalid chat_id: must be a valid UUID", 400)
+        try:
+            permit = gate.acquire(wait_timeout=queue_timeout_seconds)
+        except GateBusy as gb:
+            resp = handle_error("Server busy, please retry", 429)
+            resp.headers["Retry-After"] = str(gb.retry_after_seconds)
+            return resp
+
+        def _make_req():
+            return provider.send_message(
+                model=model,
+                messages=messages,
+                stream=is_stream,
+                chat_id=chat_id,
+            )
+        upstream, error_resp = retry_upstream_call(_make_req)
+        if error_resp:
+            permit.release()
+            return error_resp
+
+        created = int(time.time())
+        if upstream.status_code >= 400:
+            try:
+                err_body = upstream.json()
+            except Exception:
+                err_body = {"raw": upstream.text}
+            logger.error(f"Qwen upstream error: {upstream.status_code} - {err_body}")
+            permit.release()
+            return handle_error(err_body.get("error", {}).get("message", "Upstream error"), upstream.status_code)
+
+        if is_stream:
+            def wrap_stream(gen):
+                try:
+                    for chunk in gen:
+                        yield chunk
+                finally:
+                    permit.release()
+
+            resp = Response(
+                wrap_stream(parse_qwen_stream(
+                    upstream,
+                    requested_model or model,
+                    created,
+                )),
+                mimetype="text/event-stream",
+                headers={"Cache-Control": "no-cache", "Connection": "keep-alive"},
+            )
+            for k, v in build_cors_headers().items():
+                resp.headers.setdefault(k, v)
+            return resp
+
+        # Non-streaming Qwen
+        try:
+            response_data = upstream.json()
+            choices = response_data.get("choices", [])
+            if choices:
+                message = choices[0].get("message", {})
+                content = message.get("content", "")
+            else:
+                content = ""
+            usage = response_data.get("usage", {})
+            completion = {
+                "id": response_data.get("id", "chatcmpl-qwen"),
+                "object": "chat.completion",
+                "created": created,
+                "model": model,
+                "choices": [{"index": 0, "message": {"role": "assistant", "content": content}, "finish_reason": "stop"}],
+                "usage": usage,
+            }
+            resp = make_response(jsonify(completion))
+            for k, v in build_cors_headers().items():
+                resp.headers.setdefault(k, v)
+            return resp
+        finally:
+            permit.release()
 
     else:
         # Generic providers
@@ -448,6 +533,8 @@ def list_models():
                 {"id": "sonoma/sky", "object": "model", "owned_by": provider_name},
                 {"id": "sonoma/dusk", "object": "model", "owned_by": provider_name},
             ])
+        elif provider_name == "qwen":
+            all_models.append({"id": "qwen", "object": "model", "owned_by": provider_name})
 
     resp_data = {"object": "list", "data": all_models}
     resp = make_response(jsonify(resp_data), 200)
