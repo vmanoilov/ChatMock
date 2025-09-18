@@ -94,7 +94,7 @@ curl http://127.0.0.1:8000/v1/chat/completions \
   }'
 
 # Qwen
-curl "http://127.0.0.1:8000/v1/chat/completions?provider=qwen&chat_id=25e701db-821b-4299-b6b7-8306cbe40eb4" \
+curl "http://127.0.0.1:8000/v1/chat/completions?provider=qwen&chat_id=" \
   -H "Authorization: Bearer key" \
   -H "Content-Type: application/json" \
   -d '{
