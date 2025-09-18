@@ -11,11 +11,11 @@ from typing import Any, Dict, Generator, List, Optional, Tuple
 import requests
 from requests import Response
 
-from .config import CHATGPT_RESPONSES_URL
-from .providers.qwen import QwenProvider
-from .session import ensure_session_id
-from .upstream import normalize_model_name
-from .utils import get_effective_chatgpt_auth, convert_chat_messages_to_responses_input
+from ..config import CHATGPT_RESPONSES_URL
+from ..session import ensure_session_id
+from ..upstream import normalize_model_name
+from ..utils import get_effective_chatgpt_auth, convert_chat_messages_to_responses_input
+from .qwen import QwenProvider, parse_qwen_stream
 
 logger = logging.getLogger(__name__)
 
@@ -59,7 +59,7 @@ class ChatGPTProvider(Provider):
         access_token, account_id = get_effective_chatgpt_auth()
         if not access_token or not account_id:
             from flask import make_response, jsonify
-            from .http import build_cors_headers
+            from ..http import build_cors_headers
             resp = make_response(jsonify({"error": {"message": "Missing ChatGPT credentials. Run 'python3 chatmock.py login' first."}}), 401)
             for k, v in build_cors_headers().items():
                 resp.headers.setdefault(k, v)
@@ -99,7 +99,7 @@ class ChatGPTProvider(Provider):
                 return requests.post(CHATGPT_RESPONSES_URL, headers=headers, json=payload, stream=True, timeout=600), None
             except requests.RequestException as e:
                 from flask import make_response, jsonify
-                from .http import build_cors_headers
+                from ..http import build_cors_headers
                 resp = make_response(jsonify({"error": {"message": f"Upstream ChatGPT request failed: {e}"}}), 502)
                 for k, v in build_cors_headers().items():
                     resp.headers.setdefault(k, v)
@@ -138,7 +138,7 @@ class GrokProvider(Provider):
         api_key = os.getenv("XAI_API_KEY")
         if not api_key:
             from flask import make_response, jsonify
-            from .http import build_cors_headers
+            from ..http import build_cors_headers
             resp = make_response(jsonify({"error": {"message": "Missing XAI_API_KEY environment variable."}}), 401)
             for k, v in build_cors_headers().items():
                 resp.headers.setdefault(k, v)
@@ -165,7 +165,7 @@ class GrokProvider(Provider):
                 if resp.status_code >= 400:
                     logger.error(f"Grok API error: {resp.status_code} - {resp.text}")
                     from flask import make_response, jsonify
-                    from .http import build_cors_headers
+                    from ..http import build_cors_headers
                     error_resp = make_response(jsonify({"error": {"message": resp.text}}), resp.status_code)
                     for k, v in build_cors_headers().items():
                         error_resp.headers.setdefault(k, v)
@@ -174,7 +174,7 @@ class GrokProvider(Provider):
             except requests.RequestException as e:
                 logger.error(f"Grok request failed: {e}")
                 from flask import make_response, jsonify
-                from .http import build_cors_headers
+                from ..http import build_cors_headers
                 resp = make_response(jsonify({"error": {"message": f"Grok request failed: {e}"}}), 502)
                 for k, v in build_cors_headers().items():
                     resp.headers.setdefault(k, v)
@@ -220,7 +220,7 @@ class OpenRouterProvider(Provider):
         api_key = os.getenv("OPENROUTER_API_KEY")
         if not api_key:
             from flask import make_response, jsonify
-            from .http import build_cors_headers
+            from ..http import build_cors_headers
             resp = make_response(jsonify({"error": {"message": "Missing OPENROUTER_API_KEY environment variable."}}), 401)
             for k, v in build_cors_headers().items():
                 resp.headers.setdefault(k, v)
@@ -256,7 +256,7 @@ class OpenRouterProvider(Provider):
                 if resp.status_code >= 400:
                     logger.error(f"OpenRouter API error: {resp.status_code} - {resp.text}")
                     from flask import make_response, jsonify
-                    from .http import build_cors_headers
+                    from ..http import build_cors_headers
                     error_resp = make_response(jsonify({"error": {"message": resp.text}}), resp.status_code)
                     for k, v in build_cors_headers().items():
                         error_resp.headers.setdefault(k, v)
@@ -265,7 +265,7 @@ class OpenRouterProvider(Provider):
             except requests.RequestException as e:
                 logger.error(f"OpenRouter request failed: {e}")
                 from flask import make_response, jsonify
-                from .http import build_cors_headers
+                from ..http import build_cors_headers
                 resp = make_response(jsonify({"error": {"message": f"OpenRouter request failed: {e}"}}), 502)
                 for k, v in build_cors_headers().items():
                     resp.headers.setdefault(k, v)

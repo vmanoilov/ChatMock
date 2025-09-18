@@ -10,8 +10,7 @@ from requests import Response as RequestsResponse
 
 from .config import BASE_INSTRUCTIONS
 from .http import build_cors_headers
-from .providers import PROVIDERS
-from .providers.qwen import parse_qwen_stream
+from .providers import PROVIDERS, parse_qwen_stream
 from .rate_limit import gate, GateBusy, queue_timeout_seconds
 from .reasoning import apply_reasoning_to_message, build_reasoning_param, extract_reasoning_from_model_name
 from .upstream import normalize_model_name

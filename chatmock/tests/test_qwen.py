@@ -1,7 +1,6 @@
 import os
 import unittest.mock
-from chatmock.providers import QwenProvider
-from chatmock.providers.qwen import parse_qwen_stream
+from chatmock.providers import QwenProvider, parse_qwen_stream
 
 def test_qwen():
     """Test Qwen provider. Requires QWEN_AUTH_TOKEN and QWEN_COOKIES environment variables."""
