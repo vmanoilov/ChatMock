@@ -10,8 +10,8 @@ from typing import Any, Dict, Generator, List, Optional, Tuple
 import requests
 from requests import Response
 
-from .providers import Provider
-from .utils import sanitize_log_message
+from . import Provider
+from ..utils import sanitize_log_message
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +33,7 @@ class QwenProvider(Provider):
 
         if not cookies:
             from flask import make_response, jsonify
-            from .http import build_cors_headers
+            from ..http import build_cors_headers
             resp = make_response(jsonify({"error": {"message": "Missing QWEN_COOKIES environment variable. Please set it to your Qwen cookies string."}}), 401)
             for k, v in build_cors_headers().items():
                 resp.headers.setdefault(k, v)
@@ -81,7 +81,7 @@ class QwenProvider(Provider):
                     sanitized_text = sanitize_log_message(resp.text)
                     logger.error(f"Qwen API error: {resp.status_code} - {sanitized_text}")
                     from flask import make_response, jsonify
-                    from .http import build_cors_headers
+                    from ..http import build_cors_headers
                     error_resp = make_response(jsonify({"error": {"message": resp.text}}), resp.status_code)
                     for k, v in build_cors_headers().items():
                         error_resp.headers.setdefault(k, v)
@@ -91,7 +91,7 @@ class QwenProvider(Provider):
                 sanitized_error = sanitize_log_message(str(e))
                 logger.error(f"Qwen request failed: {sanitized_error}")
                 from flask import make_response, jsonify
-                from .http import build_cors_headers
+                from ..http import build_cors_headers
                 resp = make_response(jsonify({"error": {"message": f"Qwen request failed: {e}"}}), 502)
                 for k, v in build_cors_headers().items():
                     resp.headers.setdefault(k, v)
