@@ -1,5 +1,26 @@
 {
   "mcpServers": {
+    "context7": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@upstash/context7-mcp"
+      ],
+      "env": {
+        "DEFAULT_MINIMUM_TOKENS": ""
+      },
+      "alwaysAllow": [
+        "resolve-library-id",
+        "get-library-docs"
+      ]
+    },
+    "sequentialthinking": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-sequential-thinking"
+      ]
+    },
     "github": {
       "command": "docker",
       "args": [
@@ -18,29 +39,7 @@
         "GITHUB_PERSONAL_ACCESS_TOKEN": "",
         "GITHUB_TOOLSETS": "",
         "GITHUB_READ_ONLY": ""
-      },
-      "alwaysAllow": [
-        "get_repository",
-        "list_releases",
-        "get_file_contents"
-      ]
-    },
-    "context7": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "@upstash/context7-mcp"
-      ],
-      "env": {
-        "DEFAULT_MINIMUM_TOKENS": ""
       }
-    },
-    "sequentialthinking": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "@modelcontextprotocol/server-sequential-thinking"
-      ]
     }
   }
 }
