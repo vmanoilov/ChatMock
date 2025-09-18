@@ -10,7 +10,7 @@ from typing import Any, Dict, Generator, List, Optional, Tuple
 import requests
 from requests import Response
 
-from . import Provider
+from .base import Provider
 from ..utils import sanitize_log_message
 
 logger = logging.getLogger(__name__)
