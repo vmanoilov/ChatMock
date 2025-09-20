@@ -87,7 +87,7 @@ def main() -> None:
     p_serve.add_argument("--verbose", action="store_true", help="Enable verbose logging")
     p_serve.add_argument(
         "--provider",
-        choices=["chatgpt", "grok", "openrouter"],
+        choices=["chatgpt", "grok", "openrouter", "qwen"],
         default=os.getenv("CHATMOCK_PROVIDER", "chatgpt"),
         help="Select LLM provider (default: chatgpt)",
     )

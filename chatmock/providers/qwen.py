@@ -23,9 +23,12 @@ class QwenProvider(Provider):
         cookies = os.getenv("QWEN_COOKIES")
         chat_id = kwargs.get("chat_id") or os.getenv("QWEN_CHAT_ID") or "25e701db-821b-4299-b6b7-8306cbe40eb4"
 
+        # Use QWEN_MODEL if available, otherwise use the model parameter
+        qwen_model = os.getenv("QWEN_MODEL", model)
+
         if not auth_token:
             from flask import make_response, jsonify
-            from .http import build_cors_headers
+            from ..http import build_cors_headers
             resp = make_response(jsonify({"error": {"message": "Missing QWEN_AUTH_TOKEN environment variable. Please set it to your Qwen authorization token."}}), 401)
             for k, v in build_cors_headers().items():
                 resp.headers.setdefault(k, v)
@@ -65,11 +68,13 @@ class QwenProvider(Provider):
             "Cookie": cookies,
         }
 
-        # Assume request body similar to OpenAI
+        # Qwen API payload with required fields
         payload = {
             "messages": messages,
             "stream": stream,
-            "model": model,  # Qwen may not use model, but include
+            "incremental_output": True,
+            "chat_mode": "normal",
+            "model": qwen_model,
         }
 
         url = f"{self.API_URL}?chat_id={chat_id}"
@@ -105,10 +110,15 @@ class QwenProvider(Provider):
             if error_resp:
                 logger.error(f"Qwen error response: {error_resp.status_code} - {error_resp.text}")
                 raise ValueError(f"Error: {error_resp.get_json()}")
-            # Assume non-streaming response is JSON
+            # Parse non-streaming response
             response_data = upstream.json()
-            # Assume structure similar to OpenAI
-            content = response_data.get("choices", [{}])[0].get("message", {}).get("content", "")
+            # Handle Qwen response structure
+            choices = response_data.get("choices", [])
+            if choices:
+                message = choices[0].get("message", {})
+                content = message.get("content", "")
+            else:
+                content = ""
             return {"content": content}
         except Exception as e:
             logger.error(f"Error in Qwen get_response: {str(e)}")
