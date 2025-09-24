@@ -2,9 +2,14 @@ from __future__ import annotations
 
 from flask import Response, jsonify, request
 
+from .config import CHATMOCK_CORS_ORIGINS
+
 
 def build_cors_headers() -> dict:
     origin = request.headers.get("Origin", "*")
+    allowed_origins = [o.strip() for o in CHATMOCK_CORS_ORIGINS.split(",") if o.strip()]
+    if allowed_origins and origin not in allowed_origins and "*" not in allowed_origins:
+        origin = allowed_origins[0] if allowed_origins else "*"
     req_headers = request.headers.get("Access-Control-Request-Headers")
     allow_headers = req_headers if req_headers else "Authorization, Content-Type, Accept"
     return {

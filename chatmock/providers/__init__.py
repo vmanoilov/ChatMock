@@ -12,6 +12,7 @@ from requests import Response
 
 from .base import Provider
 from .qwen import QwenProvider, parse_qwen_stream
+from .qwen_client import QwenClient, ChatMockError
 from ..config import CHATGPT_RESPONSES_URL
 from ..session import ensure_session_id
 from ..upstream import normalize_model_name

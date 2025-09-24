@@ -57,6 +57,8 @@ def cmd_serve(
     reasoning_compat: str,
     debug_model: str | None,
     expose_reasoning_models: bool,
+    log_level: str,
+    inject_base_prompt: bool,
 ) -> int:
     app = create_app(
         verbose=verbose,
@@ -67,6 +69,8 @@ def cmd_serve(
         reasoning_compat=reasoning_compat,
         debug_model=debug_model,
         expose_reasoning_models=expose_reasoning_models,
+        log_level=log_level,
+        inject_base_prompt=inject_base_prompt,
     )
 
     app.run(host=host, debug=False, use_reloader=False, port=port, threaded=True)
@@ -132,6 +136,18 @@ def main() -> None:
             "This allows choosing effort via model selection in compatible UIs."
         ),
     )
+    p_serve.add_argument(
+        "--log-level",
+        choices=["info", "debug", "warn", "error"],
+        default=os.getenv("CHATMOCK_LOG_LEVEL", "info").lower(),
+        help="Set logging level (default: info)",
+    )
+    p_serve.add_argument(
+        "--inject-base-prompt",
+        action="store_true",
+        default=os.getenv("INJECT_BASE_PROMPT", "true").lower() == "true",
+        help="Inject base system prompt from prompt.md if no system message provided (default: true)",
+    )
 
     p_info = sub.add_parser("info", help="Print current stored tokens and derived account id")
     p_info.add_argument("--json", action="store_true", help="Output raw auth.json contents")
@@ -153,6 +169,8 @@ def main() -> None:
                 reasoning_compat=args.reasoning_compat,
                 debug_model=args.debug_model,
                 expose_reasoning_models=args.expose_reasoning_models,
+                log_level=args.log_level,
+                inject_base_prompt=args.inject_base_prompt,
             )
         )
     elif args.command == "info":

@@ -4,14 +4,15 @@ import json
 import logging
 import os
 import time
+import uuid
 from typing import Any, Dict, List
 
 from flask import Blueprint, Response, current_app, jsonify, make_response, request
 from requests import Response as RequestsResponse
 
-from .config import BASE_INSTRUCTIONS
+from .config import BASE_INSTRUCTIONS, CHATMOCK_REQUIRE_AUTH, CHATMOCK_ACCESS_TOKEN
 from .http import build_cors_headers
-from .providers import PROVIDERS, parse_qwen_stream
+from .providers import PROVIDERS, parse_qwen_stream, QwenClient, ChatMockError
 from .rate_limit import gate, GateBusy, queue_timeout_seconds
 from .reasoning import apply_reasoning_to_message, build_reasoning_param, extract_reasoning_from_model_name
 from .upstream import normalize_model_name
@@ -34,14 +35,61 @@ def get_provider(provider_name: str = None):
         return None, f"Invalid provider: {provider_name}. Available: {list(PROVIDERS.keys())}"
     return provider, None
 
-def handle_error(error_msg, status=400):
-    resp = make_response(jsonify({"error": {"message": error_msg}}), status)
+def handle_error(error_msg, status=400, error_type="bad_request", details=None):
+    error_obj = {
+        "type": error_type,
+        "message": error_msg,
+    }
+    if details:
+        error_obj["details"] = details
+    resp = make_response(jsonify({"error": error_obj}), status)
     for k, v in build_cors_headers().items():
         resp.headers.setdefault(k, v)
     return resp
 
+
+def check_auth():
+    if not CHATMOCK_REQUIRE_AUTH:
+        return None
+    auth_header = request.headers.get("Authorization", "")
+    if not auth_header.startswith("Bearer "):
+        return handle_error("Missing or invalid Bearer token", 401, "bad_request")
+    token = auth_header[7:]
+    if token != CHATMOCK_ACCESS_TOKEN:
+        return handle_error("Invalid Bearer token", 403, "bad_request")
+    return None
+
+
+def finalize_response(resp, req_id, start_time, model, is_stream, prompt_chars, completion_chars, status):
+    """Add logging, metrics, and headers to response."""
+    latency_ms = int((time.time() - start_time) * 1000)
+    logger.info(f"req_id={req_id} latency_ms={latency_ms} model={model} stream={is_stream} status={status} prompt_chars={prompt_chars} completion_chars={completion_chars}")
+
+    # Update metrics
+    from .app import metrics
+    metrics["requests_total"] += 1
+    if is_stream:
+        metrics["requests_streaming"] += 1
+    else:
+        metrics["requests_non_streaming"] += 1
+    if status >= 400:
+        metrics["errors_total"] += 1
+
+    # Add X-Request-Id header
+    resp.headers["X-Request-Id"] = req_id
+    return resp
+
 @providers_bp.route("/v1/chat/completions", methods=["POST"])
 def chat_completions():
+    # Check authentication
+    auth_error = check_auth()
+    if auth_error:
+        return auth_error
+
+    # Generate request ID
+    req_id = request.headers.get("X-Request-Id") or str(uuid.uuid4())
+    start_time = time.time()
+
     verbose = bool(current_app.config.get("VERBOSE"))
     reasoning_effort = current_app.config.get("REASONING_EFFORT", "medium")
     reasoning_summary = current_app.config.get("REASONING_SUMMARY", "auto")
@@ -52,7 +100,7 @@ def chat_completions():
     provider_name = request.args.get('provider') or current_app.config.get('PROVIDER', 'chatgpt')
     provider, err = get_provider(provider_name)
     if err:
-        return handle_error(err, 400)
+        return handle_error(err, 400, "bad_request")
 
     if verbose:
         try:
@@ -65,7 +113,7 @@ def chat_completions():
     try:
         payload = json.loads(raw) if raw else {}
     except Exception:
-        return handle_error("Invalid JSON body")
+        return handle_error("Invalid JSON body", 400, "bad_request")
 
     requested_model = payload.get("model") or default_model
     model = requested_model or "gpt-5"
@@ -75,7 +123,13 @@ def chat_completions():
     if messages is None:
         messages = []
     if not isinstance(messages, list):
-        return handle_error("Request must include messages: []")
+        return handle_error("Request must include messages: []", 400, "bad_request")
+
+    # Base prompt injection: prepend system message if none exists and injection is enabled
+    inject_base = bool(current_app.config.get("INJECT_BASE_PROMPT", True))
+    has_system = any(msg.get("role") == "system" for msg in messages)
+    if inject_base and not has_system and BASE_INSTRUCTIONS:
+        messages.insert(0, {"role": "system", "content": BASE_INSTRUCTIONS})
 
     is_stream = bool(payload.get("stream"))
     stream_options = payload.get("stream_options") or {}
@@ -102,7 +156,7 @@ def chat_completions():
         try:
             permit = gate.acquire(wait_timeout=queue_timeout_seconds)
         except GateBusy as gb:
-            resp = handle_error("Server busy, please retry", 429)
+            resp = handle_error("Queue full or timeout", 429, "rate_limit", {"retry_after": gb.retry_after_seconds})
             resp.headers["Retry-After"] = str(gb.retry_after_seconds)
             return resp
 
@@ -133,7 +187,8 @@ def chat_completions():
             headers = {}
             if "retry-after" in upstream.headers:
                 headers["Retry-After"] = upstream.headers["retry-after"]
-            return handle_error(err_body.get("error", {}).get("message", "Upstream error"), upstream.status_code), headers
+            details = {"upstream_status": upstream.status_code}
+            return handle_error(err_body.get("error", {}).get("message", "Upstream error"), upstream.status_code, "upstream", details), headers
 
         if is_stream:
             def wrap_stream(gen):
@@ -201,86 +256,108 @@ def chat_completions():
         return resp
 
     elif provider_name == "qwen":
-        # Qwen specific handling
+        # Qwen specific handling using QwenClient
         chat_id = request.args.get('chat_id') or os.getenv('QWEN_CHAT_ID') or "25e701db-821b-4299-b6b7-8306cbe40eb4"
         # Validate chat_id as UUID
         try:
             import uuid
             uuid.UUID(chat_id)
         except ValueError:
-            return handle_error("Invalid chat_id: must be a valid UUID", 400)
+            return handle_error("Invalid chat_id: must be a valid UUID", 400, "bad_request")
+
+        from .config import QWEN_AUTH_TOKEN, QWEN_COOKIES
+        client = QwenClient(
+            base_url="https://chat.qwen.ai/api/v2/chat/completions",
+            auth_token=QWEN_AUTH_TOKEN,
+            cookies=QWEN_COOKIES,
+            timeout=600
+        )
+
         try:
             permit = gate.acquire(wait_timeout=queue_timeout_seconds)
         except GateBusy as gb:
-            resp = handle_error("Server busy, please retry", 429)
+            from .app import metrics
+            metrics["rate_limit_hits"] += 1
+            resp = handle_error("Queue full or timeout", 429, "rate_limit", {"retry_after": gb.retry_after_seconds})
             resp.headers["Retry-After"] = str(gb.retry_after_seconds)
             return resp
 
-        def _make_req():
-            return provider.send_message(
-                model=model,
+        try:
+            created = int(time.time())
+            result = client.chat(
                 messages=messages,
                 stream=is_stream,
                 chat_id=chat_id,
+                model=requested_model or model,
+                temperature=payload.get("temperature", 0.7),
+                top_p=payload.get("top_p", 1.0),
+                max_tokens=payload.get("max_tokens", 1024),
             )
-        upstream, error_resp = retry_upstream_call(_make_req)
-        if error_resp:
-            permit.release()
-            return error_resp
 
-        created = int(time.time())
-        if upstream.status_code >= 400:
-            try:
-                err_body = upstream.json()
-            except Exception:
-                err_body = {"raw": upstream.text}
-            logger.error(f"Qwen upstream error: {upstream.status_code} - {err_body}")
-            permit.release()
-            return handle_error(err_body.get("error", {}).get("message", "Upstream error"), upstream.status_code)
+            if is_stream:
+                def wrap_stream():
+                    try:
+                        for chunk in result:
+                            if chunk == "stop":
+                                # Send finish chunk
+                                finish_chunk = {
+                                    "id": f"chatcmpl-qwen-{created}",
+                                    "object": "chat.completion.chunk",
+                                    "created": created,
+                                    "model": requested_model or model,
+                                    "choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}]
+                                }
+                                yield f"data: {json.dumps(finish_chunk)}\n\n".encode('utf-8')
+                                yield b"data: [DONE]\n\n"
+                                break
+                            else:
+                                # Send content chunk
+                                delta = {"content": chunk}
+                                openai_chunk = {
+                                    "id": f"chatcmpl-qwen-{created}",
+                                    "object": "chat.completion.chunk",
+                                    "created": created,
+                                    "model": requested_model or model,
+                                    "choices": [{"index": 0, "delta": delta, "finish_reason": None}]
+                                }
+                                yield f"data: {json.dumps(openai_chunk)}\n\n".encode('utf-8')
+                    finally:
+                        permit.release()
 
-        if is_stream:
-            def wrap_stream(gen):
-                try:
-                    for chunk in gen:
-                        yield chunk
-                finally:
-                    permit.release()
+                resp = Response(
+                    wrap_stream(),
+                    mimetype="text/event-stream",
+                    headers={"Cache-Control": "no-cache", "Connection": "keep-alive"},
+                )
+                for k, v in build_cors_headers().items():
+                    resp.headers.setdefault(k, v)
+                return resp
 
-            resp = Response(
-                wrap_stream(parse_qwen_stream(
-                    upstream,
-                    requested_model or model,
-                    created,
-                )),
-                mimetype="text/event-stream",
-                headers={"Cache-Control": "no-cache", "Connection": "keep-alive"},
-            )
-            for k, v in build_cors_headers().items():
-                resp.headers.setdefault(k, v)
-            return resp
-
-        # Non-streaming Qwen
-        try:
-            response_data = upstream.json()
-            choices = response_data.get("choices", [])
-            if choices:
-                message = choices[0].get("message", {})
-                content = message.get("content", "")
             else:
-                content = ""
-            usage = response_data.get("usage", {})
-            completion = {
-                "id": response_data.get("id", "chatcmpl-qwen"),
-                "object": "chat.completion",
-                "created": created,
-                "model": model,
-                "choices": [{"index": 0, "message": {"role": "assistant", "content": content}, "finish_reason": "stop"}],
-                "usage": usage,
-            }
-            resp = make_response(jsonify(completion))
-            for k, v in build_cors_headers().items():
-                resp.headers.setdefault(k, v)
-            return resp
+                # Non-streaming
+                content = result["text"]
+                usage = result["usage"]
+                completion = {
+                    "id": f"chatcmpl-qwen-{created}",
+                    "object": "chat.completion",
+                    "created": created,
+                    "model": requested_model or model,
+                    "choices": [{"index": 0, "message": {"role": "assistant", "content": content}, "finish_reason": "stop"}],
+                    "usage": usage,
+                }
+                resp = make_response(jsonify(completion))
+                for k, v in build_cors_headers().items():
+                    resp.headers.setdefault(k, v)
+                return resp
+
+        except ChatMockError as e:
+            permit.release()
+            details = {}
+            if e.retry_after:
+                details["retry_after"] = e.retry_after
+            if e.status >= 500:
+                details["upstream_status"] = e.status
+            return handle_error(e.message, e.status, e.kind, details)
         finally:
             permit.release()
 
@@ -289,7 +366,7 @@ def chat_completions():
         try:
             permit = gate.acquire(wait_timeout=queue_timeout_seconds)
         except GateBusy as gb:
-            resp = handle_error("Server busy, please retry", 429)
+            resp = handle_error("Queue full or timeout", 429, "rate_limit", {"retry_after": gb.retry_after_seconds})
             resp.headers["Retry-After"] = str(gb.retry_after_seconds)
             return resp
 
@@ -313,7 +390,8 @@ def chat_completions():
                 err_body = {"raw": upstream.text}
             logger.error(f"{provider_name} upstream error: {upstream.status_code} - {err_body}")
             permit.release()
-            return handle_error(err_body.get("error", {}).get("message", "Upstream error"), upstream.status_code)
+            details = {"upstream_status": upstream.status_code}
+            return handle_error(err_body.get("error", {}).get("message", "Upstream error"), upstream.status_code, "upstream", details)
 
         if is_stream:
             def generic_sse_stream(upstream_resp):
@@ -381,13 +459,13 @@ def completions():
     provider_name = request.args.get('provider') or current_app.config.get('PROVIDER', 'chatgpt')
     provider, err = get_provider(provider_name)
     if err:
-        return handle_error(err, 400)
+        return handle_error(err, 400, "bad_request")
 
     raw = request.get_data(cache=True, as_text=True) or ""
     try:
         payload = json.loads(raw) if raw else {}
     except Exception:
-        return handle_error("Invalid JSON body")
+        return handle_error("Invalid JSON body", 400, "bad_request")
 
     requested_model = payload.get("model") or default_model
     model = requested_model or "gpt-5"
@@ -403,7 +481,7 @@ def completions():
     try:
         permit = gate.acquire(wait_timeout=queue_timeout_seconds)
     except GateBusy as gb:
-        resp = handle_error("Server busy, please retry", 429)
+        resp = handle_error("Queue full or timeout", 429, "rate_limit", {"retry_after": gb.retry_after_seconds})
         resp.headers["Retry-After"] = str(gb.retry_after_seconds)
         return resp
 
@@ -444,7 +522,8 @@ def completions():
             err_body = {"raw": upstream.text}
         logger.error(f"{provider_name} completions error: {upstream.status_code} - {err_body}")
         permit.release()
-        return handle_error("Upstream error", upstream.status_code)
+        details = {"upstream_status": upstream.status_code}
+        return handle_error("Upstream error", upstream.status_code, "upstream", details)
 
     if stream_req:
         if provider_name == "chatgpt":
