@@ -182,7 +182,7 @@ def to_data_url(image_str: str) -> str:
 - `test_chatgpt.py`: OAuth and ChatGPT API integration
 - `test_grok.py`: xAI API with streaming
 - `test_openrouter.py`: Sonoma models with truncation
-- `test_qwen.py`: Qwen API with auth tokens and cookies
+- `test_qwen.py`: Qwen API (qwen3-max-preview) with auth tokens and cookies
 
 ## Build & Deployment
 

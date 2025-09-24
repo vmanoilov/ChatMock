@@ -24,7 +24,7 @@ def test_qwen_non_stream_contract(mock_chat, client):
     }
 
     payload = {
-        "model": "qwen",
+        "model": "qwen3-max-preview",
         "messages": [{"role": "user", "content": "Say hello"}],
         "stream": False
     }
@@ -37,7 +37,7 @@ def test_qwen_non_stream_contract(mock_chat, client):
     assert "id" in data
     assert data["object"] == "chat.completion"
     assert "created" in data
-    assert data["model"] == "qwen"
+    assert data["model"] == "qwen3-max-preview"
     assert "choices" in data
     assert len(data["choices"]) == 1
     choice = data["choices"][0]

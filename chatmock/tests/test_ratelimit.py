@@ -24,7 +24,7 @@ def test_rate_limit_exceeded(mock_chat, client):
     mock_chat.return_value = {"text": "OK", "usage": {}}
 
     payload = {
-        "model": "qwen",
+        "model": "qwen3-max-preview",
         "messages": [{"role": "user", "content": "Test"}],
         "stream": False
     }

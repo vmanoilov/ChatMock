@@ -22,7 +22,7 @@ Provider selection via CLI `--provider` flag or request query parameter. All pro
 
 #### GUI Application
 
-If you're on **macOS**, you can download the GUI app from the [GitHub releases](https://github.com/RayBytes/ChatMock/releases).  
+If you're on **macOS**, you can download the GUI app from the [GitHub releases](https://github.com/vmanoilov/ChatMock/releases).  
 > **Note:** Since ChatMock isn't signed with an Apple Developer ID, you may need to run the following command in your terminal to open the app:
 >
 > ```bash
@@ -35,7 +35,7 @@ If you're on **macOS**, you can download the GUI app from the [GitHub releases](
 
 You can also install ChatMock as a command-line tool using [Homebrew](https://brew.sh/):
 ```
-brew tap RayBytes/chatmock
+brew tap vmanoilov/chatmock
 brew install chatmock
 ```
 
@@ -55,7 +55,7 @@ You can make sure this worked by running `python chatmock.py info`
 ```bash
 python chatmock.py serve --provider chatgpt
 ```
-Use `--provider grok`, `--provider openrouter`, or `--provider qwen` for other providers. Add `--model gpt-5` (or grok-beta, sonoma/sky, qwen) to set default model.
+Use `--provider grok`, `--provider openrouter`, or `--provider qwen` for other providers. Add `--model gpt-5` (or grok-beta, sonoma/sky, qwen3-max-preview) to set default model.
 
 The server runs at http://127.0.0.1:8000 by default.
 
@@ -98,7 +98,7 @@ curl "http://127.0.0.1:8000/v1/chat/completions?provider=qwen&chat_id=" \
   -H "Authorization: Bearer key" \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "qwen",
+    "model": "qwen3-max-preview",
     "messages": [{"role":"user","content":"hello world"}]
   }'
 ```
@@ -121,7 +121,7 @@ curl "http://127.0.0.1:8000/v1/chat/completions?provider=qwen&chat_id=" \
 - **ChatGPT**: gpt-5 (with reasoning variants: gpt-5-high, gpt-5-medium, gpt-5-low, gpt-5-minimal if --expose-reasoning-models)
 - **Grok**: grok-beta (Code Fast 1)
 - **OpenRouter**: sonoma/sky, sonoma/dusk (1M token context)
-- **Qwen**: qwen
+- **Qwen**: qwen3-max-preview
 
 View available models: GET /v1/models
 
@@ -218,5 +218,5 @@ Previous changes...
 
 ## Star History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=RayBytes/ChatMock&type=Timeline)](https://www.star-history.com/#RayBytes/ChatMock&Timeline)
+[![Star History Chart](https://api.star-history.com/svg?repos=vmanoilov/ChatMock&type=Timeline)](https://www.star-history.com/#vmanoilov/ChatMock&Timeline)
 

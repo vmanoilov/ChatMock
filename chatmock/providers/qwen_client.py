@@ -45,7 +45,7 @@ class QwenClient:
             Stream: Generator yielding text chunks, then final "stop" signal
         """
         chat_id = opts.get("chat_id") or os.getenv("QWEN_CHAT_ID") or "25e701db-821b-4299-b6b7-8306cbe40eb4"
-        model = opts.get("model") or os.getenv("QWEN_MODEL", "qwen")
+        model = opts.get("model") or os.getenv("QWEN_MODEL", "qwen3-max-preview")
         temperature = opts.get("temperature", 0.7)
         top_p = opts.get("top_p", 1.0)
         max_tokens = opts.get("max_tokens", 1024)

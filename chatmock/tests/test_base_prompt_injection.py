@@ -32,7 +32,7 @@ def test_base_prompt_injection_with_user_system(mock_chat, client_with_injection
     mock_chat.return_value = {"text": "Response", "usage": {}}
 
     payload = {
-        "model": "qwen",
+        "model": "qwen3-max-preview",
         "messages": [
             {"role": "system", "content": "User system prompt"},
             {"role": "user", "content": "Hello"}
@@ -56,7 +56,7 @@ def test_base_prompt_injection_without_user_system(mock_chat, client_with_inject
     mock_chat.return_value = {"text": "Response", "usage": {}}
 
     payload = {
-        "model": "qwen",
+        "model": "qwen3-max-preview",
         "messages": [{"role": "user", "content": "Hello"}],
         "stream": False
     }
@@ -78,7 +78,7 @@ def test_no_injection_when_disabled(mock_chat, client_without_injection):
     mock_chat.return_value = {"text": "Response", "usage": {}}
 
     payload = {
-        "model": "qwen",
+        "model": "qwen3-max-preview",
         "messages": [{"role": "user", "content": "Hello"}],
         "stream": False
     }

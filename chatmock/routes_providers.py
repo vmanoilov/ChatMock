@@ -613,7 +613,7 @@ def list_models():
                 {"id": "sonoma/dusk", "object": "model", "owned_by": provider_name},
             ])
         elif provider_name == "qwen":
-            all_models.append({"id": "qwen", "object": "model", "owned_by": provider_name})
+            all_models.append({"id": "qwen3-max-preview", "object": "model", "owned_by": provider_name})
 
     resp_data = {"object": "list", "data": all_models}
     resp = make_response(jsonify(resp_data), 200)

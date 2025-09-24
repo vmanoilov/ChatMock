@@ -21,7 +21,7 @@ def test_upstream_error_mapping(mock_chat, client):
     mock_chat.side_effect = ChatMockError("upstream", 502, "Upstream service error", retry_after=5)
 
     payload = {
-        "model": "qwen",
+        "model": "qwen3-max-preview",
         "messages": [{"role": "user", "content": "Test"}],
         "stream": False
     }
@@ -44,7 +44,7 @@ def test_invalid_json_error(client):
 
 
 def test_missing_messages_error(client):
-    payload = {"model": "qwen"}
+    payload = {"model": "qwen3-max-preview"}
     response = client.post('/v1/chat/completions', json=payload)
     assert response.status_code == 400
     data = response.get_json()
@@ -54,7 +54,7 @@ def test_missing_messages_error(client):
 
 def test_invalid_chat_id_error(client):
     payload = {
-        "model": "qwen",
+        "model": "qwen3-max-preview",
         "messages": [{"role": "user", "content": "Test"}],
         "stream": False
     }
@@ -70,7 +70,7 @@ def test_auth_error(mock_check_auth, client):
     mock_check_auth.return_value = {"error": {"type": "bad_request", "message": "Auth failed"}}
 
     payload = {
-        "model": "qwen",
+        "model": "qwen3-max-preview",
         "messages": [{"role": "user", "content": "Test"}],
         "stream": False
     }

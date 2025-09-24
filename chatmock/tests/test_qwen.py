@@ -13,7 +13,7 @@ def test_qwen():
     provider = QwenProvider()
     messages = [{"role": "user", "content": "Hello, what is Qwen?"}]
     try:
-        response = provider.get_response("qwen", messages)
+        response = provider.get_response("qwen3-max-preview", messages)
         print("Qwen Response:", response["content"])
     except Exception as e:
         print("Qwen Test Error:", str(e))
@@ -28,7 +28,7 @@ def test_qwen_streaming():
         b'data: {"content": "", "finished": true}\n\n',
     ]
 
-    chunks = list(parse_qwen_stream(mock_response, "qwen", 1234567890))
+    chunks = list(parse_qwen_stream(mock_response, "qwen3-max-preview", 1234567890))
     print(f"Generated {len(chunks)} chunks")
     for i, chunk in enumerate(chunks):
         print(f"Chunk {i}: {chunk.decode('utf-8', errors='ignore')[:100]}...")

@@ -40,7 +40,7 @@ start_time=$(date +%s%3N)
 response=$(curl -s -X POST "$BASE_URL/v1/chat/completions" \
     -H "Content-Type: application/json" \
     -d '{
-        "model": "qwen",
+        "model": "qwen3-max-preview",
         "messages": [{"role": "user", "content": "Say hello in one short line"}],
         "stream": false,
         "max_tokens": 10
@@ -63,7 +63,7 @@ start_time=$(date +%s%3N)
 response=$(curl -s -X POST "$BASE_URL/v1/chat/completions" \
     -H "Content-Type: application/json" \
     -d '{
-        "model": "qwen",
+        "model": "qwen3-max-preview",
         "messages": [{"role": "user", "content": "Count to 3"}],
         "stream": true,
         "max_tokens": 20

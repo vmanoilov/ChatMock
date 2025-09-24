@@ -25,7 +25,7 @@ def test_qwen_stream_contract(mock_chat, client):
     mock_chat.return_value = mock_generator()
 
     payload = {
-        "model": "qwen",
+        "model": "qwen3-max-preview",
         "messages": [{"role": "user", "content": "Stream me"}],
         "stream": True
     }
@@ -49,7 +49,7 @@ def test_qwen_stream_contract(mock_chat, client):
     assert "id" in first_chunk
     assert first_chunk["object"] == "chat.completion.chunk"
     assert "created" in first_chunk
-    assert first_chunk["model"] == "qwen"
+    assert first_chunk["model"] == "qwen3-max-preview"
     assert "choices" in first_chunk
     assert len(first_chunk["choices"]) == 1
     choice = first_chunk["choices"][0]
