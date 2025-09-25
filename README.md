@@ -247,7 +247,7 @@ python test_qwen.py       # Requires QWEN_AUTH_TOKEN
 
 ## Original Work by RayBytes
 
-**Full credit** to **Vladislav Manoilov** ([@RayBytes](https://github.com/RayBytes/ChatMock)) for creating the core ChatMock project! His original work includes:
+**Full credit** to **RayBytes** ([@RayBytes](https://github.com/RayBytes/ChatMock)) for creating the core ChatMock project! His original work includes:
 
 - Initial ChatGPT proxy implementation  
 - OAuth authentication system
