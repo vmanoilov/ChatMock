@@ -215,9 +215,9 @@ Sample tests in `chatmock/tests/` verify each provider works independently.
 
 # Changelog
 
-## Original Work by Vladislav Manoilov (vmanoilov)
+## Original Work by RayBytes
 
-The core ChatMock project was created by **Vladislav Manoilov** (GitHub: [@vmanoilov](https://github.com/vmanoilov)). His original work includes:
+The core ChatMock project was created by **Vladislav Manoilov** (GitHub: [@RayBytes]([(https://github.com/RayBytes/ChatMock))). His original work includes:
 
 - Initial ChatGPT proxy implementation
 - OAuth authentication system
@@ -225,16 +225,15 @@ The core ChatMock project was created by **Vladislav Manoilov** (GitHub: [@vmano
 - Reasoning and compatibility features
 - Multi-provider foundation
 
-**Original work ends here.** All subsequent changes and fixes are contributions from the current maintainer.
 
+How my fork is different? 
 ---
 
 ## Continued Development - v1.5 [Security & Production Fixes]
 
 **Date:** 2025-09-25
-**Maintainer:** Current maintainer (Kilo Code implementation)
 
-This version focuses on production hardening, security improvements, and completing incomplete features for the Qwen provider.
+This version focuses on production hardening, security improvements, and fixing bugs
 
 ### Key Changes:
 - **Completed Qwen Provider Implementation**: Fixed placeholders, added shared sessions, proper error handling
