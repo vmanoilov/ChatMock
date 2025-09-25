@@ -23,6 +23,24 @@ CHATMOCK_REQUIRE_AUTH = os.getenv("CHATMOCK_REQUIRE_AUTH", "false").lower() == "
 CHATMOCK_ACCESS_TOKEN = os.getenv("CHATMOCK_ACCESS_TOKEN")
 INJECT_BASE_PROMPT = os.getenv("INJECT_BASE_PROMPT", "true").lower() == "true"
 
+# Limits
+MAX_MESSAGES = 64
+MAX_CHARS_PER_MSG = 16384
+MAX_TOTAL_BYTES = 262144  # 256k
+MAX_TOKENS = 2048
+DEFAULT_MAX_TOKENS = 1024
+
+# Auth
+AUTH_MAX_FAILURES = 5
+AUTH_BACKOFF_WINDOW = 60  # seconds
+
+# Stream limits
+MAX_STREAM_BYTES = 1048576  # 1MB
+STREAM_TIMEOUT = 300  # 5 minutes
+
+# Rate limit burst
+CHATMOCK_RATE_LIMIT_BURST = int(os.getenv("CHATMOCK_RATE_LIMIT_BURST", str(CHATMOCK_RATE_LIMIT_RPS * 2)))
+
 
 def read_base_instructions() -> str:
     # If CHATMOCK_BASE_PROMPT_PATH is set, use it directly

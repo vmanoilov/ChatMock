@@ -109,11 +109,27 @@ curl "http://127.0.0.1:8000/v1/chat/completions?provider=qwen&chat_id=" \
 - Vision/Image understanding
 - Thinking summaries (through thinking tags)
 
+## Security & Limits
+
+### Authentication & Authorization
+- **Bearer Auth**: Set `CHATMOCK_REQUIRE_AUTH=true` and `CHATMOCK_ACCESS_TOKEN` for API access control.
+- **CORS**: `CHATMOCK_CORS_ORIGINS` should be a comma-separated allowlist (never `*` in production).
+- **HTTPS**: Production deployments must run behind TLS (nginx/traefik). Set `REQUIRE_TLS=true` to enforce.
+
+### Input Validation
+- **Model Allowlist**: Requests validate models per provider (e.g., Qwen: `qwen`, `qwen3-max-preview`).
+- **Message Limits**: Max 64 messages, 16k chars per message, 256k total bytes.
+- **Token Clamping**: `max_tokens` capped at 2048.
+
+### Rate Limiting
+- Built-in concurrency control and RPS limiting to prevent abuse.
+- Queue with timeout; excess requests return 429 with Retry-After.
+
 ## Notes & Limits
 
 - Requires an active, paid ChatGPT account.
 - Expect lower rate limits than what you may recieve in the ChatGPT app.
-- Some context length might be taken up by internal instructions (but they dont seem to degrade the model) 
+- Some context length might be taken up by internal instructions (but they dont seem to degrade the model)
 - Use responsibly and at your own risk. This project is not affiliated with OpenAI, and is a educational exercise.
 
 ## Supported Models
@@ -136,6 +152,15 @@ View available models: GET /v1/models
 - `QWEN_CHAT_ID`: Optional for Qwen provider (defaults to demo ID)
 - `CHATMOCK_PROVIDER`: Default provider (chatgpt|grok|openrouter|qwen)
 - `CHATMOCK_MODEL`: Default model if not specified in requests
+- `CHATMOCK_REQUIRE_AUTH`: Enable bearer auth (true/false)
+- `CHATMOCK_ACCESS_TOKEN`: Bearer token for auth
+- `CHATMOCK_CORS_ORIGINS`: Comma-separated CORS allowlist
+- `REQUIRE_TLS`: Enforce HTTPS (true/false)
+- `CHATMOCK_RATE_LIMIT_RPS`: RPS limit (default 8)
+- `CHATMOCK_MAX_CONCURRENCY`: Max concurrent requests (default 1)
+- `CHATMOCK_QUEUE_LIMIT`: Max queued requests (default 100)
+- `CHATMOCK_QUEUE_TIMEOUT`: Queue timeout seconds (default 120)
+- `INJECT_BASE_PROMPT`: Inject base system prompt (true/false)
 
 ### CLI Options
 
@@ -189,6 +214,56 @@ The context size of this route is also larger than what you get access to in the
 Sample tests in `chatmock/tests/` verify each provider works independently.
 
 # Changelog
+
+## Original Work by Vladislav Manoilov (vmanoilov)
+
+The core ChatMock project was created by **Vladislav Manoilov** (GitHub: [@vmanoilov](https://github.com/vmanoilov)). His original work includes:
+
+- Initial ChatGPT proxy implementation
+- OAuth authentication system
+- Basic Flask server setup
+- Reasoning and compatibility features
+- Multi-provider foundation
+
+**Original work ends here.** All subsequent changes and fixes are contributions from the current maintainer.
+
+---
+
+## Continued Development - v1.5 [Security & Production Fixes]
+
+**Date:** 2025-09-25
+**Maintainer:** Current maintainer (Kilo Code implementation)
+
+This version focuses on production hardening, security improvements, and completing incomplete features for the Qwen provider.
+
+### Key Changes:
+- **Completed Qwen Provider Implementation**: Fixed placeholders, added shared sessions, proper error handling
+- **Security Enhancements**: Bearer auth with backoff, CORS allowlist, HTTPS enforcement, input validation
+- **Performance & Reliability**: Thread-safe metrics, rate limiting with concurrency control, error normalization
+- **Code Quality**: Centralized config, removed magic numbers, comprehensive tests
+- **Documentation**: Updated README with security notes, limits, and full env var reference
+
+### Technical Details:
+- Replaced all `...` placeholders with working code
+- Added input limits: 64 messages max, 16k chars/message, 256k total bytes, 2048 max tokens
+- Implemented auth failure backoff (5 attempts/minute per IP)
+- Thread-safe metrics with locking
+- Comprehensive pytest suite for all features
+- Smoke script for automated testing
+
+### Files Modified:
+- `chatmock/providers/qwen_client.py`: Updated with shared Session, proper auth
+- `chatmock/routes_providers.py`: Added validation, auth, HTTPS checks
+- `chatmock/config.py`: Centralized limits and defaults
+- `chatmock/app.py`: Thread-safe metrics
+- `README.md`: Security docs, env vars
+- All test files: Enhanced coverage
+
+### Breaking Changes:
+- `CHATMOCK_CORS_ORIGINS` now requires explicit allowlist (no default `*`)
+- New required env vars for security: `CHATMOCK_REQUIRE_AUTH`, `REQUIRE_TLS`
+
+### Previous Versions:
 
 - [v1.4] [Qwen] Added Qwen provider support
   - Added `chatmock/providers/qwen.py`: QwenProvider class with API integration, headers, auth, and streaming conversion

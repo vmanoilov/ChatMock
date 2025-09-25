@@ -11,7 +11,6 @@ from .app import create_app
 from .config import CLIENT_ID_DEFAULT
 from .oauth import OAuthHTTPServer, OAuthHandler, REQUIRED_PORT, URL_BASE
 from .utils import eprint, get_home_dir, load_chatgpt_tokens, parse_jwt_claims, read_auth_file
-import os
 
 
 def cmd_login(no_browser: bool, verbose: bool) -> int:

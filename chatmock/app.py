@@ -46,7 +46,9 @@ def create_app(
         INJECT_BASE_PROMPT=bool(inject_base_prompt),
     )
 
-    # Metrics counters
+    # Metrics counters with thread safety
+    import threading
+    metrics_lock = threading.Lock()
     metrics = {
         "requests_total": 0,
         "requests_streaming": 0,

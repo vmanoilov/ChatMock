@@ -25,10 +25,13 @@ class ChatMockError(Exception):
 
 
 class QwenClient:
-    def __init__(self, base_url: str, auth_token: Optional[str] = None, cookies: Optional[str] = None, timeout: int = 600):
-        self.base_url = base_url
-        self.auth_token = auth_token
-        self.cookies = cookies
+    def __init__(self, base_url: str, auth_token: Optional[str] = None, cookies: Optional[str] = None, timeout: int = 120):
+        self.sess = requests.Session()
+        self.base = base_url.rstrip("/")
+        self.headers = {"Content-Type": "application/json"}
+        if auth_token:
+            self.headers["Authorization"] = f"Bearer {auth_token}"
+        self.cookies = {"cookie": cookies} if cookies else None
         self.timeout = timeout
 
     def chat(self, messages: List[Dict[str, Any]], stream: bool = False, **opts) -> Dict[str, Any] | Generator[str, None, None]:
@@ -41,7 +44,7 @@ class QwenClient:
             **opts: Additional options like temperature, top_p, max_tokens, chat_id, model
 
         Returns:
-            Non-stream: {"text": "...", "usage": {...}}
+            Non-stream: {"text": "response text", "usage": {...}}
             Stream: Generator yielding text chunks, then final "stop" signal
         """
         chat_id = opts.get("chat_id") or os.getenv("QWEN_CHAT_ID") or "25e701db-821b-4299-b6b7-8306cbe40eb4"
@@ -52,34 +55,6 @@ class QwenClient:
 
         # Normalize messages to Qwen format
         normalized_messages = self._normalize_messages(messages)
-
-        # Generate dynamic headers
-        x_request_id = str(uuid.uuid4())
-        current_timezone = datetime.now(timezone.utc).strftime('%a %b %d %Y %H:%M:%S GMT%z')
-
-        headers = {
-            "Accept": "application/json",
-            "Accept-Encoding": "gzip, deflate, br, zstd",
-            "Accept-Language": "en-GB,en-US;q=0.9,en;q=0.8,bg;q=0.7,zh-TW;q=0.6,zh;q=0.5",
-            "Connection": "keep-alive",
-            "Content-Type": "application/json; charset=UTF-8",
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36",
-            "Referer": f"https://chat.qwen.ai/c/{chat_id}",
-            "Host": "chat.qwen.ai",
-            "Origin": "https://chat.qwen.ai",
-            "DNT": "1",
-            "bx-v": "2.5.31",
-            "source": "web",
-            "timezone": current_timezone,
-            "version": "0.0.209",
-            "x-accel-buffering": "no",
-            "x-request-id": x_request_id,
-        }
-
-        if self.auth_token:
-            headers["authorization"] = f"Bearer {self.auth_token}"
-        if self.cookies:
-            headers["Cookie"] = self.cookies
 
         payload = {
             "messages": normalized_messages,
@@ -92,10 +67,10 @@ class QwenClient:
             "max_tokens": max_tokens,
         }
 
-        url = f"{self.base_url}?chat_id={chat_id}"
+        url = f"{self.base}?chat_id={chat_id}"
 
         try:
-            resp = requests.post(url, headers=headers, json=payload, stream=True, timeout=self.timeout)
+            resp = self.sess.post(url, headers=self.headers, json=payload, cookies=self.cookies, stream=stream, timeout=self.timeout)
             if resp.status_code >= 400:
                 sanitized_text = sanitize_log_message(resp.text)
                 logger.error(f"Qwen API error: {resp.status_code} - {sanitized_text}")

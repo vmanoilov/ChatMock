@@ -1,14 +1,20 @@
 # chatmock/rate_limit.py
 from __future__ import annotations
 
+import logging
 import os
 import threading
 import time
 from collections import deque
-from contextlib import contextmanager
 from typing import Optional
 
-from .config import CHATMOCK_QUEUE_TIMEOUT, CHATMOCK_RATE_LIMIT_RPS
+from .config import CHATMOCK_QUEUE_TIMEOUT, CHATMOCK_RATE_LIMIT_RPS, CHATMOCK_RATE_LIMIT_BURST
+
+# Constants for retry times
+RATE_LIMIT_RETRY_SECONDS = 1
+QUEUE_FULL_RETRY_SECONDS = 2
+
+logger = logging.getLogger(__name__)
 
 class GateBusy(Exception):
     """Queue is full; caller should back off."""
@@ -66,7 +72,8 @@ class Gate:
         """Acquire a permit or wait fairly. Raise GateBusy if queue is full or rate limited."""
         # Check rate limiter first
         if self.rate_limiter and not self.rate_limiter.acquire():
-            raise GateBusy(retry_after_seconds=1)  # Rate limited
+            logger.warning("Rate limit exceeded")
+            raise GateBusy(retry_after_seconds=RATE_LIMIT_RETRY_SECONDS)  # Rate limited
 
         ev = None
         with self._lock:
@@ -74,7 +81,8 @@ class Gate:
                 self._permits -= 1
                 return _Permit(self)
             if len(self._waiters) >= self.qmax:
-                raise GateBusy(retry_after_seconds=2)
+                logger.warning("Queue full, rejecting request")
+                raise GateBusy(retry_after_seconds=QUEUE_FULL_RETRY_SECONDS)
             ev = threading.Event()
             self._waiters.append(ev)
         signaled = ev.wait(timeout=wait_timeout)
@@ -85,7 +93,8 @@ class Gate:
                     self._waiters.remove(ev)
                 except ValueError:
                     pass
-            raise GateBusy(retry_after_seconds=2)
+            logger.warning("Request timed out waiting in queue")
+            raise GateBusy(retry_after_seconds=QUEUE_FULL_RETRY_SECONDS)
         # we were granted a permit
         return _Permit(self)
 
@@ -100,13 +109,6 @@ class Gate:
                 if self._permits > self.max:
                     self._permits = self.max
 
-    @contextmanager
-    def acquire_cm(self, *, wait_timeout: Optional[float] = None):
-        p = self.acquire(wait_timeout=wait_timeout)
-        try:
-            yield p
-        finally:
-            p.release()
 
 def _env_int(name: str, default: int) -> int:
     try:
@@ -125,7 +127,7 @@ CHATMOCK_MAX_CONCURRENCY = _env_int("CHATMOCK_MAX_CONCURRENCY", 1)
 CHATMOCK_QUEUE_LIMIT     = _env_int("CHATMOCK_QUEUE_LIMIT", 100)
 
 # Create rate limiter if RPS > 0
-burst = int(CHATMOCK_RATE_LIMIT_RPS * 2) if CHATMOCK_RATE_LIMIT_RPS > 0 else 0
+burst = CHATMOCK_RATE_LIMIT_BURST if CHATMOCK_RATE_LIMIT_RPS > 0 else 0
 rate_limiter = TokenBucket(CHATMOCK_RATE_LIMIT_RPS, burst) if CHATMOCK_RATE_LIMIT_RPS > 0 else None
 
 gate = Gate(CHATMOCK_MAX_CONCURRENCY, CHATMOCK_QUEUE_LIMIT, rate_limiter)
